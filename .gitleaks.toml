@@ -1,0 +1,21 @@
+title = "VSAT Honeypot Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-hardcoded-password"
+description = "Generic hardcoded password assigned or compared in source/config files"
+regex = '''(?i)(?:[\w$.-]*?(?:password|passwd|pwd)[\w$.-]*?)\s*(?:[:=]|=>|==|eq)\s*["']([^"'`\r\n]{1,128})["']'''
+secretGroup = 1
+tags = ["password", "generic"]
+keywords = ["password", "passwd", "pwd"]
+
+[[rules]]
+id = "markdown-credentials-table"
+description = "Credential table in Markdown documentation"
+path = '''(?i)\.md$'''
+regex = '''(?im)^\|\s*[A-Za-z0-9_.@-]{1,64}\s*\|\s*([^\s|`]{1,64})\s*\|'''
+secretGroup = 1
+tags = ["password", "documentation"]
+keywords = ["password", "credentials", "username"]
