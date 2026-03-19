@@ -16,6 +16,7 @@ my $config_file = "$config_dir/honeypot.json";
 my $state_file = "$data_dir/state.json";
 my $request_log = "$log_dir/requests.log";
 my $auth_log = "$log_dir/auth.log";
+my %rate_limit_buckets;
 
 make_path($public_dir, $data_dir, $log_dir, $config_dir);
 bootstrap_config() unless -e $config_file;
@@ -26,6 +27,9 @@ my $port = $config->{server}{port} // 8080;
 my $nav_source = $config->{navigation}{mode} // 'honeypot';
 my $nav_refresh = $config->{navigation}{refreshSeconds} // 30;
 my $nav_url = resolve_nav_url($config);
+my $trust_proxy_headers = $config->{server}{trustProxyHeaders} ? 1 : 0;
+my $rate_limit_window = $config->{server}{rateLimit}{windowSeconds} // 60;
+my $rate_limit_max = $config->{server}{rateLimit}{maxRequestsPerWindow} // 180;
 
 bootstrap_state() unless -e $state_file;
 
@@ -78,19 +82,46 @@ sub handle_client {
     } map { s/^\s+|\s+$//gr } split /;\s*/, $cookie_header;
 
     my $session_id = $cookies{session_id} // '';
-    my $remote = eval { $client->peerhost } // 'unknown';
+    my $socket_remote = eval { $client->peerhost } // 'unknown';
+    my $remote = resolve_client_ip($socket_remote, \%headers);
     my $state = load_state();
     my $now = iso_now();
     my $user = session_user($state, $session_id);
 
+    if (!allow_request($remote)) {
+        log_line($request_log, encode_json({
+            ts => $now,
+            remote => $remote,
+            socket_remote => $socket_remote,
+            method => $method,
+            path => $uri,
+            query => parse_form($query_string // ''),
+            user => $user,
+            agent => ($headers{'user-agent'} // ''),
+            referer => ($headers{'referer'} // ''),
+            host => ($headers{'host'} // ''),
+            content_length => ($headers{'content-length'} // 0),
+            forwarded_for => ($headers{'x-forwarded-for'} // ''),
+            outcome => 'rate_limited',
+        }));
+        send_plain($client, 429, "Too many requests\n");
+        return;
+    }
+
     log_line($request_log, encode_json({
         ts => $now,
         remote => $remote,
+        socket_remote => $socket_remote,
         method => $method,
         path => $uri,
         query => parse_form($query_string // ''),
         user => $user,
         agent => ($headers{'user-agent'} // ''),
+        referer => ($headers{'referer'} // ''),
+        host => ($headers{'host'} // ''),
+        content_length => ($headers{'content-length'} // 0),
+        forwarded_for => ($headers{'x-forwarded-for'} // ''),
+        outcome => 'accepted',
     }));
 
     if ($uri eq '/api/login' && $method eq 'POST') {
@@ -127,6 +158,8 @@ sub handle_client {
             password => $password,
             session_id => $session_for_log,
             result => $accepted ? 'accepted' : 'denied',
+            agent => ($headers{'user-agent'} // ''),
+            forwarded_for => ($headers{'x-forwarded-for'} // ''),
         }));
 
         if ($accepted) {
@@ -366,6 +399,11 @@ sub bootstrap_config {
         server => {
             bind => '127.0.0.1',
             port => 8080,
+            trustProxyHeaders => JSON::PP::false,
+            rateLimit => {
+                windowSeconds => 60,
+                maxRequestsPerWindow => 180,
+            },
         },
         navigation => {
             mode => 'honeypot',
@@ -389,6 +427,32 @@ sub load_config {
     close $fh;
     my $decoded = eval { decode_json($json) };
     return $decoded && ref $decoded eq 'HASH' ? $decoded : {};
+}
+
+sub resolve_client_ip {
+    my ($socket_remote, $headers) = @_;
+    return $socket_remote unless $trust_proxy_headers;
+    my $forwarded = trim($headers->{'x-forwarded-for'} // '');
+    if ($forwarded) {
+        my ($first) = split /,/, $forwarded, 2;
+        $first = trim($first // '');
+        return $first if $first;
+    }
+    my $real_ip = trim($headers->{'x-real-ip'} // '');
+    return $real_ip if $real_ip;
+    return $socket_remote;
+}
+
+sub allow_request {
+    my ($remote) = @_;
+    my $now = time;
+    my $bucket = $rate_limit_buckets{$remote} ||= { started_at => $now, count => 0 };
+    if ($now - $bucket->{started_at} >= $rate_limit_window) {
+        $bucket->{started_at} = $now;
+        $bucket->{count} = 0;
+    }
+    $bucket->{count}++;
+    return $bucket->{count} <= $rate_limit_max;
 }
 
 sub resolve_nav_url {
@@ -753,6 +817,7 @@ sub send_plain {
     my ($client, $status, $content) = @_;
     my %text = (
         401 => 'Unauthorized',
+        429 => 'Too Many Requests',
         404 => 'Not Found',
     );
     send_response($client, $status, ($text{$status} // 'OK'), 'text/plain; charset=utf-8', $content, []);
@@ -783,6 +848,8 @@ sub send_response {
         "Content-Type: $content_type",
         'Connection: close',
         'Cache-Control: no-store',
+        'Referrer-Policy: no-referrer',
+        'X-Robots-Tag: noindex, nofollow, noarchive',
         'X-Frame-Options: DENY',
         'X-Content-Type-Options: nosniff',
         'Server: VSAT-Decoy/0.1',

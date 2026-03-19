@@ -38,7 +38,12 @@ Example `honeypot` config:
 {
   "server": {
     "bind": "127.0.0.1",
-    "port": 8080
+    "port": 8080,
+    "trustProxyHeaders": false,
+    "rateLimit": {
+      "windowSeconds": 60,
+      "maxRequestsPerWindow": 180
+    }
   },
   "navigation": {
     "mode": "honeypot",
@@ -58,7 +63,12 @@ Example `scrape` config:
 {
   "server": {
     "bind": "127.0.0.1",
-    "port": 8080
+    "port": 8080,
+    "trustProxyHeaders": true,
+    "rateLimit": {
+      "windowSeconds": 60,
+      "maxRequestsPerWindow": 120
+    }
   },
   "navigation": {
     "mode": "scrape",
@@ -77,6 +87,15 @@ Notes for scraper mode:
 - It is best-effort and depends on public HTML that may change.
 - Some fields on Vesseltracker are gated for logged-in users, so the decoy falls back to local synthetic GPS and motion when fields are missing.
 - Public scraping may be subject to the website's terms and anti-bot controls.
+
+## Public Deployment Notes
+
+- Prefer a reverse proxy in front of the app and only enable `server.trustProxyHeaders` when you actually trust that proxy.
+- Keep the dashboard isolated in a VM, VLAN, or lab segment with no path to real management networks.
+- Use host firewall rules to allow only the ports you intend to expose.
+- Request logs now capture socket IP, forwarded IP, host, referer, content length, and outcome to improve triage.
+- A lightweight per-IP rate limiter is enabled from config to reduce noisy scanning and accidental resource exhaustion.
+- This app is an HTTP decoy UI only; do not treat it as a full device emulator.
 
 ## Files
 
