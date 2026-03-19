@@ -202,6 +202,9 @@ sub handle_client {
             profile => $state->{profile},
             terminals => $state->{terminals},
             wan => $state->{wan},
+            modemProfiles => $state->{modem_profiles},
+            blockingZones => $state->{blocking_zones},
+            networkPorts => $state->{network_ports},
             configuredVessel => {
                 shipName => $config->{navigation}{vesseltracker}{shipName} // '',
                 imo => $config->{navigation}{vesseltracker}{imo} // '',
@@ -337,7 +340,12 @@ sub handle_client {
 }
 
 sub bootstrap_state {
-    my $state = {
+    my $state = default_state();
+    save_state($state);
+}
+
+sub default_state {
+    return {
         profile => {
             profileName => 'INTELSAT-907',
             satelliteName => 'IS-907 @ 332.5E',
@@ -348,12 +356,14 @@ sub bootstrap_state {
             modemType => 'SAILOR 900 VSAT Ka',
         },
         wan => {
-            targetIp => '192.168.1.1',
+            targetIp => '192.168.0.1',
             mask => '255.255.255.0',
-            gateway => '192.168.1.254',
-            qosProfile => 'FleetBroadband',
+            gateway => '192.168.0.254',
+            qosProfile => 'Fleet-Priority-2',
             dnsPrimary => '8.8.8.8',
             dnsSecondary => '8.8.4.4',
+            servicePort => 'LAN port 3',
+            proxyMode => 'Direct',
         },
         terminals => [
             {
@@ -382,10 +392,43 @@ sub bootstrap_state {
             heading => 71,
             pitch => 1.3,
             roll => 0.8,
+            azimuth => 182.4,
+            elevation => 38.9,
             packets => 17424011,
             agc => 72,
             spectralInversion => 'Normal',
+            carrier => 'Locked',
+            txMute => 'Off',
+            posOk => '99.6%',
         },
+        modem_profiles => [
+            {
+                name => 'iDirect X7 Primary',
+                txFrequency => '29.500 GHz',
+                rxFrequency => '19.700 GHz',
+                symbolRate => '45000 ksps',
+                network => 'North Atlantic',
+                active => JSON::PP::true,
+            },
+            {
+                name => 'Calibration Profile',
+                txFrequency => '29.250 GHz',
+                rxFrequency => '19.450 GHz',
+                symbolRate => '30000 ksps',
+                network => 'Commissioning',
+                active => JSON::PP::false,
+            },
+        ],
+        blocking_zones => [
+            { name => 'Funnel Shadow', start => '315', stop => '045', type => 'RX/TX', status => 'Active' },
+            { name => 'Crane Reach', start => '118', stop => '146', type => 'TX', status => 'Active' },
+        ],
+        network_ports => [
+            { port => 'LAN 1', role => 'Bridge group A', ip => '192.168.10.1', status => 'Link up' },
+            { port => 'LAN 2', role => 'Bridge group B', ip => '192.168.20.1', status => 'Link down' },
+            { port => 'LAN 3', role => 'Service port', ip => '192.168.0.1', status => 'Link up' },
+            { port => 'LAN 4', role => 'Bridge group C', ip => '192.168.30.1', status => 'Link up' },
+        ],
         upstream_nav => {
             source => $nav_source,
             url => $nav_url,
@@ -403,7 +446,6 @@ sub bootstrap_state {
         ],
         sessions => {},
     };
-    save_state($state);
 }
 
 sub bootstrap_config {
@@ -767,7 +809,25 @@ sub load_state {
     local $/;
     my $json = <$fh>;
     close $fh;
-    return decode_json($json);
+    my $decoded = eval { decode_json($json) };
+    return normalize_state($decoded && ref $decoded eq 'HASH' ? $decoded : {});
+}
+
+sub normalize_state {
+    my ($state) = @_;
+    my $normalized = merge_defaults(default_state(), $state);
+
+    # Existing deployments may have older labels or slightly different shapes.
+    if (ref($normalized->{terminals}) eq 'ARRAY') {
+        for my $terminal (@{$normalized->{terminals}}) {
+            next unless ref($terminal) eq 'HASH';
+            $terminal->{name} = 'Above Deck Unit (ADU)' if ($terminal->{name} // '') eq 'Above Deck Unit';
+            $terminal->{name} = 'Below Deck Unit (BDU)' if ($terminal->{name} // '') eq 'Below Deck Unit';
+            $terminal->{status} = 'Online' if ($terminal->{status} // '') eq 'Operational';
+        }
+    }
+
+    return $normalized;
 }
 
 sub save_state {

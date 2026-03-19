@@ -4,6 +4,9 @@ const state = {
   status: null,
   profile: null,
   terminals: [],
+  modemProfiles: [],
+  blockingZones: [],
+  networkPorts: [],
   configuredVessel: null,
   upstreamNav: null,
   wan: null,
@@ -15,8 +18,11 @@ const els = {
   accessMode: document.getElementById("access-mode"),
   antennaForm: document.getElementById("antenna-form"),
   antennaStatus: document.getElementById("antenna-status"),
+  agc: document.getElementById("agc"),
   ber: document.getElementById("ber"),
+  blockingZoneBody: document.getElementById("blocking-zone-body"),
   cNo: document.getElementById("cNo"),
+  carrierLock: document.getElementById("carrier-lock"),
   carrierState: document.getElementById("carrier-state"),
   clock: document.getElementById("clock"),
   commandBody: document.getElementById("command-body"),
@@ -34,18 +40,25 @@ const els = {
   loginForm: document.getElementById("login-form"),
   loginStatus: document.getElementById("login-status"),
   managementIp: document.getElementById("management-ip"),
+  modemProfileBody: document.getElementById("modem-profile-body"),
+  networkPortBody: document.getElementById("network-port-body"),
   logoutButton: document.getElementById("logout-button"),
+  overviewManagementIp: document.getElementById("overview-management-ip"),
   networkForm: document.getElementById("network-form"),
   networkStatus: document.getElementById("network-status"),
   pageTitle: document.getElementById("page-title"),
   pitch: document.getElementById("pitch"),
+  posOk: document.getElementById("pos-ok"),
   profileName: document.getElementById("profileName"),
   roll: document.getElementById("roll"),
   rxDbm: document.getElementById("rxDbm"),
   satelliteName: document.getElementById("satelliteName"),
+  servicePort: document.getElementById("service-port"),
   softwareVersion: document.getElementById("software-version"),
+  spectralInversion: document.getElementById("spectral-inversion"),
   terminalBody: document.getElementById("terminal-body"),
   trackingMode: document.getElementById("trackingMode"),
+  txMute: document.getElementById("tx-mute"),
   txDbm: document.getElementById("txDbm"),
   uploadFile: document.getElementById("upload-file"),
   uploadForm: document.getElementById("upload-form"),
@@ -183,18 +196,18 @@ function switchView(view) {
     panel.classList.toggle("active", panel.dataset.viewPanel === view);
   });
   els.pageTitle.textContent = ({
-    overview: "Installation Manager",
+    overview: "Dashboard",
     antenna: "Antenna Control",
-    network: "Network Settings",
+    network: "Settings",
     events: "Alarm Log",
-    console: "Diagnostics",
+    console: "Service",
   })[view];
   document.getElementById("breadcrumb-view").textContent = ({
-    overview: "Status",
+    overview: "Dashboard",
     antenna: "Antenna",
-    network: "Network",
+    network: "Settings",
     events: "Alarms",
-    console: "Diagnostics",
+    console: "Service",
   })[view];
 }
 
@@ -219,6 +232,9 @@ async function refresh() {
   state.configuredVessel = response.configuredVessel;
   state.upstreamNav = response.upstreamNav;
   state.wan = response.wan;
+  state.modemProfiles = response.modemProfiles || [];
+  state.blockingZones = response.blockingZones || [];
+  state.networkPorts = response.networkPorts || [];
   state.logs = response.logs;
   render();
 }
@@ -237,8 +253,10 @@ function render() {
   els.loginStatus.textContent = state.authenticated
     ? "Operator session active. Configuration controls are enabled."
     : "Use operator credentials to unlock configuration controls.";
-  els.managementIp.textContent = state.wan?.targetIp || "192.168.1.1";
+  els.managementIp.textContent = state.wan?.targetIp || "192.168.0.1";
+  els.overviewManagementIp.textContent = state.wan?.targetIp || "192.168.0.1";
   els.softwareVersion.textContent = state.profile?.firmware || "v2.4.3";
+  els.servicePort.textContent = state.wan?.servicePort || "LAN port 3";
   els.logoutButton.hidden = !state.authenticated;
   els.loginCard.classList.toggle("collapsed", state.authenticated);
   els.loginCard.style.display = state.authenticated ? "none" : "grid";
@@ -252,6 +270,11 @@ function render() {
   els.pitch.textContent = `${state.status.pitch} deg`;
   els.roll.textContent = `${state.status.roll} deg`;
   els.carrierState.textContent = state.terminals[0]?.status || "Tracking";
+  els.agc.textContent = `${state.status.agc ?? "-"} %`;
+  els.spectralInversion.textContent = state.status.spectralInversion || "-";
+  els.carrierLock.textContent = state.status.carrier || "-";
+  els.txMute.textContent = state.status.txMute || "-";
+  els.posOk.textContent = state.status.posOk || "-";
 
   els.profileName.textContent = state.profile.profileName;
   els.satelliteName.textContent = state.profile.satelliteName;
@@ -274,6 +297,36 @@ function render() {
       <td>${escapeHtml(String(terminal.temperature))} °C</td>
       <td>${escapeHtml(String(terminal.azimuth))}°</td>
       <td>${escapeHtml(String(terminal.elevation))}°</td>
+    </tr>
+  `).join("");
+
+  els.modemProfileBody.innerHTML = state.modemProfiles.map((profile) => `
+    <tr>
+      <td>${escapeHtml(profile.name)}</td>
+      <td>${escapeHtml(profile.txFrequency)}</td>
+      <td>${escapeHtml(profile.rxFrequency)}</td>
+      <td>${escapeHtml(profile.symbolRate)}</td>
+      <td>${escapeHtml(profile.network)}</td>
+      <td>${profile.active ? "Active" : "Standby"}</td>
+    </tr>
+  `).join("");
+
+  els.blockingZoneBody.innerHTML = state.blockingZones.map((zone) => `
+    <tr>
+      <td>${escapeHtml(zone.name)}</td>
+      <td>${escapeHtml(zone.start)} deg</td>
+      <td>${escapeHtml(zone.stop)} deg</td>
+      <td>${escapeHtml(zone.type)}</td>
+      <td>${escapeHtml(zone.status)}</td>
+    </tr>
+  `).join("");
+
+  els.networkPortBody.innerHTML = state.networkPorts.map((port) => `
+    <tr>
+      <td>${escapeHtml(port.port)}</td>
+      <td>${escapeHtml(port.role)}</td>
+      <td>${escapeHtml(port.ip)}</td>
+      <td>${escapeHtml(port.status)}</td>
     </tr>
   `).join("");
 

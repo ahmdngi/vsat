@@ -90,8 +90,8 @@ Example scrape config:
     "mode": "scrape",
     "refreshSeconds": 30,
     "vesseltracker": {
-      "shipName": "Megastar",
-      "imo": "9773064",
+      "shipName": "SHIP_NAME",
+      "imo": "IMO_NUMBER",
       "url": ""
     }
   }

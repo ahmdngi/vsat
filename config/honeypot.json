@@ -9,12 +9,12 @@
     }
   },
   "navigation": {
-    "mode": "scrape",
-    "refreshSeconds": 5,
+    "mode": "honeypot",
+    "refreshSeconds": 30,
     "vesseltracker": {
-      "shipName": "Megastar",
-      "imo": "9773064",
-      "url": "https://www.vesseltracker.com/en/Ships/Megastar-9773064.html"
+      "shipName": "Honeypot",
+      "imo": "0000000",
+      "url": ""
     }
   }
 }

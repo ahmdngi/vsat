@@ -17,11 +17,11 @@
           </div>
         </div>
         <nav class="nav">
-          <button class="nav-link active" data-view="overview">Status</button>
+          <button class="nav-link active" data-view="overview">Dashboard</button>
           <button class="nav-link" data-view="antenna">Antenna</button>
-          <button class="nav-link" data-view="network">Network</button>
+          <button class="nav-link" data-view="network">Settings</button>
           <button class="nav-link" data-view="events">Alarms</button>
-          <button class="nav-link" data-view="console">Diagnostics</button>
+          <button class="nav-link" data-view="console">Service</button>
         </nav>
         <section class="meta-card vessel-card">
           <p class="meta-label">Vessel Name</p>
@@ -31,7 +31,7 @@
         </section>
         <section class="meta-card">
           <p class="meta-label">Management IP</p>
-          <p class="mono" id="management-ip">192.168.1.1</p>
+          <p class="mono" id="management-ip">192.168.0.1</p>
           <p class="meta-label">Access Level</p>
           <p class="mono" id="access-mode">Guest</p>
           <p class="meta-label">Software Version</p>
@@ -58,11 +58,11 @@
             <span class="toolbar-icon warn">RF</span>
             <span class="toolbar-icon ok">GPS</span>
           </div>
-          <div class="breadcrumb">Home / Status / <span id="breadcrumb-view">Overview</span></div>
+          <div class="breadcrumb">Home / Dashboard / <span id="breadcrumb-view">Overview</span></div>
         </section>
 
         <section class="connection-banner" id="connection-banner" hidden>
-          Unable to connect to SAILOR 900. Verify network connection and start server at 192.168.1.1.
+          Unable to connect to SAILOR 900. Verify network connection and start server at 192.168.0.1.
         </section>
 
         <section class="login-card" id="login-card">
@@ -139,14 +139,32 @@
           <article class="panel">
             <div class="panel-heading">
               <div>
-                <p class="eyebrow">Satellite Profile</p>
+                <p class="eyebrow">Dashboard</p>
                 <h3 id="profileName">-</h3>
               </div>
             </div>
             <dl class="stat-list">
               <div><dt>Satellite</dt><dd id="satelliteName">-</dd></div>
+              <div><dt>Management IP</dt><dd id="overview-management-ip">-</dd></div>
               <div><dt>Tracking Mode</dt><dd id="trackingMode">-</dd></div>
+              <div><dt>Service Port</dt><dd id="service-port">-</dd></div>
               <div><dt>Software</dt><dd id="firmware">-</dd></div>
+            </dl>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Carrier And Motion</p>
+                <h3>ACU / ADU</h3>
+              </div>
+            </div>
+            <dl class="stat-list">
+              <div><dt>AGC</dt><dd id="agc">-</dd></div>
+              <div><dt>Spectral Inversion</dt><dd id="spectral-inversion">-</dd></div>
+              <div><dt>Carrier</dt><dd id="carrier-lock">-</dd></div>
+              <div><dt>TX Mute</dt><dd id="tx-mute">-</dd></div>
+              <div><dt>Position OK</dt><dd id="pos-ok">-</dd></div>
               <div><dt>Uptime</dt><dd id="uptime">-</dd></div>
             </dl>
           </article>
@@ -169,6 +187,28 @@
                 </tr>
               </thead>
               <tbody id="terminal-body"></tbody>
+            </table>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Profiles</p>
+                <h3>VSAT Modem Profiles</h3>
+              </div>
+            </div>
+            <table class="data-table compact">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>TX RF</th>
+                  <th>RX RF</th>
+                  <th>Symbol Rate</th>
+                  <th>Network</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <tbody id="modem-profile-body"></tbody>
             </table>
           </article>
         </section>
@@ -203,14 +243,35 @@
             </form>
             <p class="form-hint" id="antenna-status">Changes are applied to antenna controller.</p>
           </article>
+
+          <article class="panel wide">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Blocking Zones</p>
+                <h3>RX / TX Restrictions</h3>
+              </div>
+            </div>
+            <table class="data-table compact">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Start</th>
+                  <th>Stop</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="blocking-zone-body"></tbody>
+            </table>
+          </article>
         </section>
 
         <section class="panel-grid view" data-view-panel="network">
           <article class="panel wide">
             <div class="panel-heading">
               <div>
-                <p class="eyebrow">Network Configuration</p>
-                <h3>LAN Settings</h3>
+                <p class="eyebrow">Settings</p>
+                <h3>Network</h3>
               </div>
             </div>
             <form id="network-form" class="config-form">
@@ -229,6 +290,26 @@
               <button type="submit" class="primary-button">Apply Network Settings</button>
             </form>
             <p class="form-hint" id="network-status">Network configuration updated successfully.</p>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">LAN Connectors</p>
+                <h3>Port Groups</h3>
+              </div>
+            </div>
+            <table class="data-table compact">
+              <thead>
+                <tr>
+                  <th>Port</th>
+                  <th>Role</th>
+                  <th>IP Address</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="network-port-body"></tbody>
+            </table>
           </article>
         </section>
 
@@ -259,7 +340,7 @@
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">Service Interface</p>
-                <h3>Diagnostic Console</h3>
+                <h3>Diagnostics And Upload</h3>
               </div>
             </div>
             <form id="console-form" class="console-form">
