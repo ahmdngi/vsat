@@ -21,7 +21,7 @@ This honeypot mimics the SAILOR 900 VSAT Ka terminal web interface, capturing at
 ## Quick Start
 
 ```sh
-cd vsat
+cd vsat-honeypot
 perl server.pl
 ```
 
